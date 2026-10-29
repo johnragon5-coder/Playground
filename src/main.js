@@ -1,9 +1,25 @@
+import '@fontsource/work-sans/latin-400.css';
+import '@fontsource/work-sans/latin-500.css';
+import '@fontsource/work-sans/latin-600.css';
+import { scoreShare } from './share.js';
 import { createGame, start, advance, drop, togglePause, formatHours } from './game.js';
 const $ = id => document.getElementById(id);
 let best = 0;
 try { const value = Number(localStorage.getItem('clock-stack-best')); best = Number.isFinite(value) && value > 0 ? Math.floor(value) : 0; } catch {}
 let game = createGame(best), lastTime = 0;
 function save() { try { localStorage.setItem('clock-stack-best', String(game.best)); } catch {} }
+function openShare() {
+  const url = new URL('./', window.location.href).href;
+  const share = scoreShare(game.score, game.perfects, url);
+  $('share-score').textContent = `${formatHours(game.score)} banked`;
+  $('share-summary').textContent = `${game.score} shifts stacked · ${game.perfects} perfect drops`;
+  $('share-text').value = share.copy;
+  $('share-x').href = share.x;
+  $('share-facebook').href = share.facebook;
+  $('share-status').textContent = '';
+  $('native-share').hidden = typeof navigator.share !== 'function';
+  $('share-dialog').showModal();
+}
 function begin() { game = start(game); render(); }
 function place() { if (game.phase !== 'playing' || $('instructions').open) return; game = drop(game); save(); render(); }
 function pause() { game = togglePause(game); render(); }
@@ -19,18 +35,29 @@ function render() {
   $('shift').textContent = `SHIFT ${String(game.score).padStart(2, '0')}`;
   $('status').textContent = { ready: 'READY WHEN YOU ARE', playing: 'ON THE CLOCK', paused: 'TAKING A BREAK', over: 'SHIFT COMPLETE' }[game.phase];
   $('pause').disabled = !['playing', 'paused'].includes(game.phase);
-  $('pause').textContent = game.phase === 'paused' ? '▶' : 'Ⅱ';
+  $('pause').textContent = game.phase === 'paused' ? '>' : 'II';
   $('pause').setAttribute('aria-label', game.phase === 'paused' ? 'Resume game' : 'Pause game');
   $('drop').disabled = game.phase !== 'playing';
   $('feedback').textContent = game.lastDrop === 'perfect' ? '✦ Perfect timing! Full shift banked.' : game.lastDrop === 'good' ? 'Nice work. Keep your shifts aligned.' : game.lastDrop === 'miss' ? 'Clocked out. Ready for another shift?' : 'Your next great shift starts here.';
   const overlay = $('overlay');
   overlay.hidden = game.phase === 'playing';
-  if (game.phase === 'over') overlay.innerHTML = `<div class="clock-art">✦</div><span class="overlay-kicker">THAT’S A WORKDAY</span><h2>${formatHours(game.score)} banked.<br>Time well spent.</h2><p>${game.score} shifts stacked · ${game.perfects} perfect drops<br>Personal best: ${formatHours(game.best)}</p><button class="primary" id="restart">Clock in again <span>↻</span></button><small>Every great stack starts with one shift.</small>`;
-  if (game.phase === 'paused') overlay.innerHTML = '<div class="clock-art">Ⅱ</div><span class="overlay-kicker">TAKE YOUR TIME</span><h2>On a break.</h2><p>Your stack will be right here.</p><button class="primary" id="resume">Back to work <span>↗</span></button>';
+  if (game.phase === 'over') overlay.innerHTML = `<div class="clock-art">✦</div><span class="overlay-kicker">THAT’S A WORKDAY</span><h2>${formatHours(game.score)} banked.</h2><p>${game.score} shifts stacked · ${game.perfects} perfect drops<br>Personal best: ${formatHours(game.best)}</p><button class="primary" id="restart">Clock in again <span>↻</span></button><div class="score-share-prompt"><strong>A score worth sharing.</strong><button id="share-score-button" class="secondary">Share your score</button></div>`;
+  if (game.phase === 'paused') overlay.innerHTML = '<div class="clock-art">II</div><span class="overlay-kicker">TAKE YOUR TIME</span><h2>On a break.</h2><p>Your stack will be right here.</p><button class="primary" id="resume">Back to work <span aria-hidden="true">→</span></button>';
+  $('share-score-button')?.addEventListener('click', openShare);
   $('restart')?.addEventListener('click', begin);
   $('resume')?.addEventListener('click', pause);
   renderTower();
 }
+$('close-share').addEventListener('click', () => $('share-dialog').close());
+$('copy-score').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('share-text').value); $('share-status').textContent = 'Copied! Paste your score into your favorite social app.'; }
+  catch { $('share-text').focus(); $('share-text').select(); $('share-status').textContent = 'Copy is unavailable here. Select and copy the score above.'; }
+});
+$('native-share').addEventListener('click', async () => {
+  const share = scoreShare(game.score, game.perfects, new URL('./', window.location.href).href);
+  try { await navigator.share({ title: share.title, text: share.text, url: share.url }); }
+  catch (error) { if (error.name !== 'AbortError') $('share-status').textContent = 'Sharing is unavailable. Use Copy score & link instead.'; }
+});
 $('start').addEventListener('click', begin);
 $('drop').addEventListener('click', place);
 $('pause').addEventListener('click', pause);
@@ -38,8 +65,8 @@ $('playfield').addEventListener('click', event => { if (!event.target.closest('b
 $('help').addEventListener('click', () => { if (game.phase === 'playing') pause(); $('instructions').showModal(); });
 $('close-help').addEventListener('click', () => $('instructions').close());
 document.addEventListener('keydown', event => {
-  if ($('instructions').open || event.repeat) return;
-  if (event.code === 'Space' && !event.target.closest('button, a')) { event.preventDefault(); if (game.phase === 'ready' || game.phase === 'over') begin(); else place(); }
+  if ($('instructions').open || $('share-dialog').open || event.repeat) return;
+  if (event.code === 'Space' && !event.target.closest('button, a, textarea, input')) { event.preventDefault(); if (game.phase === 'ready' || game.phase === 'over') begin(); else place(); }
   if (event.code === 'KeyP') pause();
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && game.phase === 'playing') pause(); });
