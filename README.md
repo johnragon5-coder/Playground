@@ -34,3 +34,7 @@ The score is fictional game time, not an employee time record. No backend, accou
 ## Reference
 
 Inspired by the supplied Savings Stacks reference and adapted to a time tracking theme with original interface and assets. The reference site was blocked by the development environment's network proxy, so visual and mechanic parity has not been verified.
+
+## Publish with GitHub Pages
+
+In this repository's **Settings → Pages**, select **GitHub Actions** as the build source. No custom domain is needed. After merging into `main`, the Pages workflow tests, builds with the `/Playground/` asset base, and deploys `dist` to https://johnragon5-coder.github.io/Playground/. Later pushes to `main` update the game automatically. A successful GitHub Actions deployment is required before the public URL is live.
