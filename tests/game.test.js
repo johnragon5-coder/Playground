@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createGame,start,advance,drop,togglePause,formatHours} from '../src/game.js';
+test('starts a new game and retains personal best',()=>{const g=start(createGame(8));assert.equal(g.phase,'playing');assert.equal(g.best,8);assert.equal(g.score,0)});
+test('perfect drops preserve width, bank hours, and update best',()=>{let g=start(createGame());g.moving.x=65;g=drop(g);assert.equal(g.layers.at(-1).width,236);assert.equal(g.perfects,1);assert.equal(formatHours(g.score),'8h');assert.equal(g.best,1)});
+test('off-center drops trim to the intersection',()=>{let g=start(createGame());g.moving.x=100;g=drop(g);assert.deepEqual(g.layers.at(-1),{x:100,width:198,perfect:false});assert.equal(g.moving.width,198)});
+test('complete miss ends game without banking a shift',()=>{let g=start(createGame(4));g.layers=[{x:10,width:30}];g.moving={x:100,width:30,direction:1};g=drop(g);assert.equal(g.phase,'over');assert.equal(g.score,0);assert.equal(g.best,4);assert.equal(drop(g),g)});
+test('pause freezes motion and drops; resume continues',()=>{let g=togglePause(start(createGame()));assert.equal(advance(g,1),g);assert.equal(drop(g),g);assert.equal(togglePause(g).phase,'playing')});
+test('motion bounces at both edges and clamps elapsed time',()=>{let g=start(createGame());g.moving.x=123;g=advance(g,10);assert.ok(g.moving.x<=124);assert.equal(g.moving.direction,-1);g.moving.x=1;g=advance(g,.05);assert.ok(g.moving.x>=0);assert.equal(g.moving.direction,1)});
+test('restart clears tower and score but preserves best',()=>{let g=start(createGame());g.moving.x=62;g=drop(g);g=start(g);assert.equal(g.layers.length,1);assert.equal(g.score,0);assert.equal(g.best,1)});
